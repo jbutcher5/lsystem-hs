@@ -1,32 +1,44 @@
 module Main where
 
 import Data.HashMap.Strict (HashMap, fromList, toList, (!))
-import System.Random (StdGen, mkStdGen, randomIO, next)
+import System.Random (StdGen, mkStdGen, randomIO, split, uniformR)
 
-seed = randomIO :: IO Int
+ioSeed = randomIO :: IO Int
 
 data Rule = Rule { weight :: Float
                  , output :: [Int]
                  }
+            deriving (Show, Eq)
 
 rules :: HashMap Int [Rule]
-rules = fromList [ (1, [Rule { weight = 1
+rules = fromList [ (1, [
+                       Rule { weight = 0.5
                             , output = [2, 1]
-                            }])
+                            },
+                       Rule { weight = 0.5
+                            , output = [2, 1, 2, 2]
+                            }
+                       ])
                  , (2, [Rule { weight = 1, output = [1]}])
                  ]
 
-getRuleOutput :: StdGen -> Int -> [Int]
-getRuleOutput rand k = output . head $ (!) rules k
+weighRules :: Float -> Float -> [Rule] -> Rule
+weighRules _ _ [] = error "No rules specified for key."
+weighRules v prob (rule:rs) = if k >= prob then rule else weighRules k prob rs 
+  where k = v + weight rule
 
+getRuleOutput :: Int -> Float -> [Int]
+getRuleOutput v prob = output $ weighRules 0 prob $ (!) rules v  
 
 updateAll' :: [Int] -> StdGen -> [Int]
-updateAll' (x:xs) gen = getRuleOutput gen x ++ updateAll' xs (gen)
+updateAll' [] _ = [] 
+updateAll' (x:xs) g1 = getRuleOutput x v ++ updateAll' xs g2 
+  where (v, g2) = uniformR (0.0, 1.0) g1
 
 simulate :: [Int] -> Int -> StdGen -> [Int]
-simulate xs gens rand | gens >= 1 = simulate next_generation $ gens - 1
+simulate xs gens rand | gens >= 1 = simulate next_generation (gens - 1) rand
                       | otherwise = xs
-  where next_generation = concatMap (getRuleOutput rand) xs
+  where next_generation = updateAll' xs rand 
   
 -- Check the sum of all weights per rule adds up to 1
 checkRules :: Bool
@@ -38,10 +50,9 @@ checkRules' ((_, x):xs) = (weightSum x == 1) && checkRules' xs
 -- Calculate the sum of the weights
 weightSum :: [Rule] -> Float
 weightSum = foldr (\rule acc -> weight rule + acc) 0
-
+ 
 main :: IO ()
 main | checkRules = do
-         print $ simulate [1] 2
-         x <- seed
-         print x
+         seed <- ioSeed
+         print $ simulate [1] 2 $ mkStdGen seed
      | otherwise = putStrLn "Weight sum is not 1 for each rule"
