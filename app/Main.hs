@@ -2,13 +2,10 @@ module Main where
 
 import Data.HashMap.Strict (HashMap, fromList, toList, (!))
 import System.Random (StdGen, mkStdGen, randomIO, split, uniformR)
+import Parser
+import Text.Parsec (parseTest)
 
 ioSeed = randomIO :: IO Int
-
-data Rule = Rule { weight :: Float
-                 , output :: [Int]
-                 }
-            deriving (Show, Eq)
 
 rules :: HashMap Int [Rule]
 rules = fromList [ (1, [
@@ -54,5 +51,6 @@ weightSum = foldr (\rule acc -> weight rule + acc) 0
 main :: IO ()
 main | checkRules = do
          seed <- ioSeed
-         print $ simulate [1] 2 $ mkStdGen seed
+         parseTest parseRules "a -> a b\nb -> a a"
+         --print $ simulate [1] 10 $ mkStdGen seed
      | otherwise = putStrLn "Weight sum is not 1 for each rule"
